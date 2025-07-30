@@ -1,0 +1,39 @@
+---
+- name: Install PostgreSQL
+  hosts: all
+  user: ec2-user
+  tasks:
+    - name: Ensure latest dependencies are present
+      ansible.builtin.package:
+        name: "{{ item }}"
+        state: latest
+      with_items:
+        - python3-firewall
+        - python3-psycopg2
+    - name: Ensure latest PostgreSQL packages are present
+      ansible.builtin.package:
+        name: "{{ item }}"
+        state: latest
+      with_items:
+        - postgresql
+        - postgresql-server
+    # AWS images have no firewall
+    # - name: Ensure PostgreSQL port is open
+    #   ansible.posix.firewalld:
+    #     port: 5432/tcp
+    #     state: enabled
+    #     immediate: true
+    #     permanent: true
+    - name: Find out if PostgreSQL is initialized
+      ansible.builtin.stat:
+        path: /var/lib/pgsql/data/pg_hba.conf
+      register: postgres_data
+    - name: Initialize PostgreSQL
+      ansible.builtin.shell:
+        cmd: postgresql-setup initdb
+      when: not postgres_data.stat.exists
+    - name: Ensure PostgreSQL is started and enabled
+      ansible.builtin.service:
+        name: postgresql
+        state: started
+        enabled: true
